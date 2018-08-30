@@ -1,9 +1,10 @@
-    Param(
+Param(
     [string] $ItemSpec = "*.tests.ps1",
-	[String] $TestParameters = "",
-	[string[]] $IncludeTags = "",
-	[string[]] $ExcludeTags = "",
-    [string] $FailOnError = "true"
+    [String] $TestParameters = "",
+    [string[]] $IncludeTags = "",
+    [string[]] $ExcludeTags = "",
+    [string] $FailOnError = "true",
+    [string] $PesterVersion = "latest"
 )
 
 #$WorkingDirectory = "C:\Users\kevbo\source\repos\pestertest"
@@ -13,8 +14,7 @@ if (!$WorkingDirectory){
 }
 
 Write-Output "WorkingDirectory: $WorkingDirectory"
-
-$TestFiles=$(get-childitem -path $WorkingDirectory -recurse $ItemSpec).fullname
+Set-Location $WorkingDirectory
 
 $packages = get-package
 if ($packages.Name  -contains "pester") {
@@ -35,23 +35,15 @@ if (!$testoutput){
 }
 
 Do {
-    [string] $fp1 = "TEST-"
-    [string] $fp2 = [guid]::NewGuid()
-    [string] $fp3 = ".xml"
-    [string] $RandomFileName = -Join ($fp1, $fp2, $fp3)
-    $outputFile = Join-Path $testoutput $RandomFileName
+    $outputFile = "{0}\TEST-{1}.xml" -f $testoutput, [guid]::NewGuid().ToString()
 }
 Until(!(Test-Path $outputFile))
 
 #Here there is time for a race condition, but should be very rare
 New-Item $outputFile -Type File
 
-$pesterversion = $(Get-Package pester).Version
-Write-Output "Pester installed: $pesterversion"
-Write-Output "Test files found:"
-Write-Output $TestFiles
 Write-Output "Writing pester output: $outputfile"
-
+Write-Output "Files: $ItemSpec"
 
 $ParameterHash = @{}
 if ($TestParameters) {
@@ -65,7 +57,7 @@ if ($TestParameters) {
 	Write-Output $ParameterHash
 }
 
-$ScriptHash = @{ 'Path' = $ItemSpec; 'Parameters' = $ParameterHash }
+$ScriptHash = @{ 'Path' = "$WorkingDirectory\$ItemSpec"; 'Parameters' = $ParameterHash }
 $InvokePesterHash = @{
 	script = $ScriptHash
 	PassThru = $True
@@ -87,7 +79,8 @@ if ($ExcludeTags) {
     Write-Output "Tags excluded: $ExcludeTags"
 }
 
-Write-Output "Invoke-Pester $InvokePesterHash"
+Write-Output "Invoke-Pester with the following parameters"
+$InvokePesterHash
 $result = Invoke-Pester @InvokePesterHash
 
 if ([boolean]::Parse($FailOnError)){
@@ -99,4 +92,3 @@ if ([boolean]::Parse($FailOnError)){
 }
 
  Exit 0
-
